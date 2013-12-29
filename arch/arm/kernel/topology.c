@@ -52,53 +52,9 @@ int arch_sd_local_flags(int level)
 	return 0*SD_SHARE_POWERDOMAIN;
 }
 
-/*
- * default topology function
- */
-
 const struct cpumask *cpu_coregroup_mask(int cpu)
 {
 	return &cpu_topology[cpu].core_sibling;
-}
-
-/*
- * clear cpu topology masks
- */
-static void clear_cpu_topology_mask(void)
-{
-	unsigned int cpuid;
-	for_each_possible_cpu(cpuid) {
-		struct cputopo_arm *cpuid_topo = &(cpu_topology[cpuid]);
-		cpumask_clear(&cpuid_topo->core_sibling);
-		cpumask_clear(&cpuid_topo->thread_sibling);
-	}
-	smp_wmb();
-}
-
-static void default_cpu_topology_mask(unsigned int cpuid)
-{
-	struct cputopo_arm *cpuid_topo = &cpu_topology[cpuid];
-	unsigned int cpu;
-
-	for_each_possible_cpu(cpu) {
-		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
-
-		if (cpuid_topo->socket_id == cpu_topo->socket_id) {
-			cpumask_set_cpu(cpuid, &cpu_topo->core_sibling);
-			if (cpu != cpuid)
-				cpumask_set_cpu(cpu,
-					&cpuid_topo->core_sibling);
-
-			if (cpuid_topo->core_id == cpu_topo->core_id) {
-				cpumask_set_cpu(cpuid,
-					&cpu_topo->thread_sibling);
-				if (cpu != cpuid)
-					cpumask_set_cpu(cpu,
-						&cpuid_topo->thread_sibling);
-			}
-		}
-	}
-	smp_wmb();
 }
 
 /*
@@ -110,6 +66,7 @@ void store_cpu_topology(unsigned int cpuid)
 {
 	struct cputopo_arm *cpuid_topo = &cpu_topology[cpuid];
 	unsigned int mpidr;
+	unsigned int cpu;
 
 	/* If the cpu topology has been already set, just return */
 	if (cpuid_topo->core_id != -1)
@@ -151,33 +108,31 @@ void store_cpu_topology(unsigned int cpuid)
 		cpuid_topo->socket_id = -1;
 	}
 
-	/*
-	 * The core and thread sibling masks will be set during the call of
-	 * arch_update_cpu_topology
-	 */
+	/* update core and thread sibling masks */
+	for_each_possible_cpu(cpu) {
+		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+
+		if (cpuid_topo->socket_id == cpu_topo->socket_id) {
+			cpumask_set_cpu(cpuid, &cpu_topo->core_sibling);
+			if (cpu != cpuid)
+				cpumask_set_cpu(cpu,
+					&cpuid_topo->core_sibling);
+
+			if (cpuid_topo->core_id == cpu_topo->core_id) {
+				cpumask_set_cpu(cpuid,
+					&cpu_topo->thread_sibling);
+				if (cpu != cpuid)
+					cpumask_set_cpu(cpu,
+						&cpuid_topo->thread_sibling);
+			}
+		}
+	}
+	smp_wmb();
 
 	printk(KERN_INFO "CPU%u: thread %d, cpu %d, socket %d, mpidr %x\n",
 		cpuid, cpu_topology[cpuid].thread_id,
 		cpu_topology[cpuid].core_id,
 		cpu_topology[cpuid].socket_id, mpidr);
-}
-
-/*
- * arch_update_cpu_topology is called by the scheduler before building
- * a new sched_domain hierarchy.
- */
-int arch_update_cpu_topology(void)
-{
-	unsigned int cpuid;
-	/* clear core mask */
-	clear_cpu_topology_mask();
-
-	/* update core and thread sibling masks */
-	for_each_possible_cpu(cpuid) {
-		default_cpu_topology_mask(cpuid);
-	}
-
-	return 1;
 }
 
 /*
