@@ -23,6 +23,7 @@ menuconfig STAGING
 
 
 if STAGING
+source "drivers/staging/cpupower/Kconfig"
 
 source "drivers/staging/serial/Kconfig"
 
