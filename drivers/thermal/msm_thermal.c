@@ -110,13 +110,13 @@ static void check_temp(struct work_struct *work)
 		goto reschedule;
 	}
 
-	if (temp >= (temp_threshold + 20))
+	if (temp >= (temp_threshold + 18))
 		limit_cpu_freqs(cpu_stats.thermal_steps[0]);
 
-	else if (temp >= (temp_threshold + 15))
+	else if (temp >= (temp_threshold + 12))
 		limit_cpu_freqs(cpu_stats.thermal_steps[1]);
     
-	else if (temp >= (temp_threshold + 10))
+	else if (temp >= (temp_threshold + 8))
 		limit_cpu_freqs(cpu_stats.thermal_steps[2]);
 
 	else if (temp >= temp_threshold)
